@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-# 1. THE NEURAL NETWORK (2 inputs -> 1 output)
+# 1. THE NEURAL NETWORK (5 inputs -> 1 output)
 class OptionPINN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -68,7 +68,7 @@ lambda_term = 25.0
 
 for epoch in range(5001):
     optimiser.zero_grad()
-    # --- A. Interior Points (All 5 variables sampled) ---
+    
     s_int     = torch.rand(10000, 1) * 200.0 
     t_int     = torch.rand(10000, 1) * 1.0
     K_int     = torch.rand(10000, 1) * 60.0 + 70.0
@@ -76,7 +76,7 @@ for epoch in range(5001):
     sigma_int = torch.rand(10000, 1) * 0.25 + 0.10
     loss_pde = compute_pde_loss(model, s_int, t_int, K_int, r_int, sigma_int)
 
-    # --- B. Terminal Payoff Condition ---
+
     S_term     = torch.rand(10000, 1) * 200.0
     t_term     = torch.ones_like(S_term) * 1.0
     K_term     = torch.rand(10000, 1) * 60.0 + 70.0
@@ -86,7 +86,7 @@ for epoch in range(5001):
     V_term = model(S_term, t_term, K_term, r_term, sigma_term)
     loss_term = torch.mean((V_term - true_payoff)**2)
 
-    # --- C. Boundary Condition (S = 0) ---
+
     S_zero     = torch.zeros(400, 1)
     t_zero     = torch.rand(400, 1) * 1.0
     K_zero     = torch.rand(400, 1) * 60.0 + 70.0 
@@ -104,7 +104,7 @@ for epoch in range(5001):
         lambda_term = 0.9 * lambda_term + 0.1 * new_lambda #smoothens out changes in lambda 
         print(f"Epoch {epoch:4d} | Auto Tuned Lambda: {lambda_term:.2f}")
 
-    # --- D. Optimize ---
+
     total_loss = loss_pde + lambda_term * loss_term + loss_zero
     total_loss.backward()
     optimiser.step()
