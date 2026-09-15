@@ -1,31 +1,146 @@
+
 # Universal Physics-Informed Neural Network (PINN) for Option Pricing
 
-A continuous 5-dimensional deep learning model implemented in PyTorch that solves the Black-Scholes Partial Differential Equation (PDE) without real-world market training data.
+[Live Preview](https://theobradbury-pinn-black-scholes.streamlit.app)
 
-The network models option price $V(S, t, K, r, \sigma)$ across continuous strike, expiration, risk-free rate, and implied volatility spaces, and extracts exact analytical risk sensitivities (Greeks: $\Delta, \Gamma, \Theta, \nu$) via automatic differentiation.
+A continuous 5-dimensional deep learning model implemented in PyTorch that solves the **Black-Scholes Partial Differential Equation (PDE)** without requiring supervised training data or real-world option prices.
+
+Rather than training on observed quotes or pre-calculated analytical prices, the network is trained as a **continuous mesh-free solver** by enforcing the governing PDE, terminal payoff condition, and boundary conditions directly through the loss function using automatic differentiation.
+
+The model represents option value as a continuous function across a 5D parameter space:
+
+$$V = V(S, t, K, r, \sigma)$$
+
+where:
+
+- $S$ — underlying asset price ($S \in [0, 200]$)
+- $t$ — evaluation time ($t \in [0, 1.0]$, with maturity at $T = 1.0$)
+- $K$ — strike price ($K \in [70, 130]$)
+- $r$ — risk-free interest rate ($r \in [0.01, 0.08]$)
+- $\sigma$ — volatility ($\sigma \in [0.10, 0.35]$)
+
+This formulation allows a single trained network to price European call options across continuous strikes, maturities, and market conditions without retraining.
+
+---
+
+## Mathematical Formulation
+
+For a European call option, the governing Black-Scholes PDE is:
+
+$$\frac{\partial V}{\partial t} + \frac{1}{2}\sigma^2 S^2 \frac{\partial^2 V}{\partial S^2} + rS \frac{\partial V}{\partial S} - rV = 0$$
+
+subject to the **terminal payoff condition** at maturity ($T = 1.0$):
+
+$$V(S, T, K, r, \sigma) = \max(S - K, 0)$$
+
+and the **lower boundary condition** at $S = 0$:
+
+$$V(0, t, K, r, \sigma) = 0$$
+
+The neural network acts as a continuous function approximator $V_\theta \approx V$:
+
+$$V_\theta(S, t, K, r, \sigma) \approx V(S, t, K, r, \sigma)$$
+
+where $\theta$ represents the trainable weights and biases of the network.
+
+During training, **PyTorch automatic differentiation (`torch.autograd`)** computes the required spatial and temporal partial derivatives directly from the computational graph:
+
+$$\mathcal{R}_\theta = \frac{\partial V_\theta}{\partial t} + \frac{1}{2}\sigma^2 S^2 \frac{\partial^2 V_\theta}{\partial S^2} + rS \frac{\partial V_\theta}{\partial S} - rV_\theta$$
+
+The network is optimised to minimise this residual while simultaneously satisfying the terminal payoff and boundary constraints.
+
+---
+
+## Model Architecture & Normalization
+
+The model is structured as a Fully Connected Multi-Layer Perceptron (MLP) with 3 hidden layers and 128 neurons per layer:
+
+$$
+\begin{aligned}
+\text{Linear}(5 \to 128) &\to \text{Tanh} \to \text{Linear}(128 \to 128) \to \text{Tanh} \\
+&\to \text{Linear}(128 \to 128) \to \text{Tanh} \to \text{Linear}(128 \to 1)
+\end{aligned}
+$$
+
+### Input Normalization & Output Scaling
+
+Because inputs have substantially different numerical ranges (e.g. $S \sim 100$ vs $r \sim 0.05$), the input features are normalised prior to the forward pass, and the network output is rescaled back to dollar units:
+
+$$\mathbf{x}_{\text{norm}} = \left[ \frac{S}{100}, \; t, \; \frac{K}{100}, \; \frac{r}{0.05}, \; \frac{\sigma}{0.20} \right]$$
+
+$$V_\theta(S, t, K, r, \sigma) = \text{net}(\mathbf{x}_{\text{norm}}) \times 100.0$$
+
+---
+
+## Training Procedure
+
+The network is trained using collocation points uniformly sampled across the parameter domain at every epoch:
+
+- **10,000 interior points:** Sampled across the full 5D domain 
+- **10,000 terminal points:** Sampled at $t = 1.0$ 
+- **400 boundary points:** Sampled at $S = 0$ 
+
+### Dynamic Loss Balancing
+
+
+To prevent the terminal condition loss from overpowering or lagging behind the PDE loss, the terminal weight  is dynamically adjusted every 100 epochs
+
+
+
+Training runs for 5,000 epochs using the Adam optimiser 
+
+---
+
+## Automatic Differentiation & Greeks
+
+Because the neural representation is inherently smooth and twice-differentiable, market risk sensitivities (the Greeks) are extracted directly from the computational graph via `torch.autograd` without finite-difference approximations:
+
+### Delta ($\Delta$)
+
+$$\Delta = \frac{\partial V_\theta}{\partial S}$$
+
+Measures sensitivity to changes in the underlying asset price.
+
+### Gamma ($\Gamma$)
+
+$$\Gamma = \frac{\partial^2 V_\theta}{\partial S^2}$$
+
+Second-order sensitivity with respect to the underlying price.
+
+### Theta ($\Theta$)
+
+$$\Theta = \frac{\partial V_\theta}{\partial t}$$
+
+Rate of change of option value with respect to evaluation time $t$.
+
+### Vega ($\nu$)
+
+$$\nu = \frac{\partial V_\theta}{\partial \sigma}$$
+
+Sensitivity of option value with respect to asset volatility.
+
+---
 
 ## Performance Benchmark
 
-Trained with continuous collocation sampling and dynamic loss balancing:
+The trained model (`final.pth`) was benchmarked against the analytical Black-Scholes formula at $S = 100$, $K = 100$, $t = 0.0$ (1 year to maturity), $r = 0.05$, and $\sigma = 0.20$:
 
 | Metric | PINN Model | Analytical Black-Scholes | Absolute Error |
 | :--- | :--- | :--- | :--- |
-| **At-The-Money Call ($S=100, K=100, t=0$)** | **$10.46** | **$10.45** | **$0.01 (<0.1%)** |
+| **At-The-Money Call ($S=100, K=100, t=0$)** | **\$10.46** | **\$10.45** | **\$0.01 ($< 0.1\%$)** |
 | **Delta ($\Delta$)** | **0.6368** | **0.6368** | **Exact match (4 d.p.)** |
-| **Inference Latency** | **< 1 ms** | Analytical | **Real-Time** |
+| **Inference Latency** | **$< 1\text{ ms}$** | Analytical | **-** |
 
-## Features
 
-- **Mesh-Free Solver:** Evaluates continuous coordinates without rigid finite difference grids.
-- **Universal Parametric Architecture:** 5 input neurons ($S, t, K, r, \sigma$) enabling instant evaluation of arbitrary contracts without retraining.
-- **Autograd Risk Sensitivities:** Continuous calculation of Delta, Gamma, Theta, and Vega directly from the PyTorch computational graph.
-- **Interactive Web Interface:** Streamlit dashboard with 3D solution surface rendering via Plotly.
+---
 
-## Installation & Running Locally
+## Interactive Visualisation
 
-```bash
-git clone https://github.com/TheoBradb/pinn-black-scholes.git
-cd pinn-black-scholes
-pip install -r requirements.txt
-streamlit run app.py
-```
+The repository includes a Streamlit application (`app.py`) for interactive exploration:
+
+- Real-time pricing and Greeks calculation via PyTorch autograd.
+- Side-by-side verification against the closed-form Black-Scholes formula.
+- Interactive 3D solution surface  rendered with Plotly.
+
+---
+
