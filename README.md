@@ -1,4 +1,5 @@
 
+
 # Universal Physics-Informed Neural Network (PINN) for Option Pricing
 
 [Live Preview](https://theobradbury-pinn-black-scholes.streamlit.app)
@@ -131,6 +132,27 @@ The trained model (`final.pth`) was benchmarked against the analytical Black-Sch
 | **Delta ($\Delta$)** | **0.6368** | **0.6368** | **Exact match (4 d.p.)** |
 | **Inference Latency** | **$< 1\text{ ms}$** | Analytical | **-** |
 
+## Learning Resources & Video References
+
+This project was built from scratch following these video lectures and tutorials:
+
+### Machine Learning & Autograd Foundations
+
+-  [3Blue1Brown — Neural Networks Series](https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) by Grant Sanderson *(Function composition, gradient descent, and backpropagation calculus)*
+
+-  [Building micrograd](https://www.youtube.com/watch?v=VMj-3S1tku0) by Andrej Karpathy *(From-scratch walkthrough of automatic differentiation engines and computational graphs)*
+
+### Physics-Informed Neural Networks (PINNs)
+
+-  [Physics Informed Neural Networks (PINNs)](https://www.youtube.com/watch?v=-zrY7P2dVC4&t=1215s) by Prof. Steve Brunton, University of Washington *(Mesh-free continuous PDE loss formulation)*
+
+
+
+### Mathematical Finance & Options
+
+-  [MIT OpenCourseWare — Black-Scholes Formula & Risk-Neutral Valuation](https://www.youtube.com/watch?v=TnS8kI_KuJc)  *(MIT 18.S096: Topics in Mathematics with Applications in Finance)*
+
+-  [Black Scholes PDE Derivation using Delta Hedging](https://www.youtube.com/watch?v=-qa2B_sCpZQ) by  quantpie *(Delta-hedged no-arbitrage PDE derivation)*
 
 ---
 
