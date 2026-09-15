@@ -27,7 +27,7 @@ class OptionPINN(nn.Module):
 @st.cache_resource
 def get_model():
     m = OptionPINN()
-    m.load_state_dict(torch.load("universal_pinn.pth", map_location="cpu"))
+    m.load_state_dict(torch.load("final.pth", map_location="cpu"))
     m.eval()
     return m
 
